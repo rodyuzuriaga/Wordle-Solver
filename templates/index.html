@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Solver</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+</head>
+<body>
+    <div class="gradient-bg">
+        <svg xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <filter id="goo">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+                    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8" result="goo" />
+                    <feBlend in="SourceGraphic" in2="goo" />
+                </filter>
+            </defs>
+        </svg>
+        <div class="gradients-container">
+            <div class="g1"></div>
+            <div class="g2"></div>
+            <div class="g3"></div>
+            <div class="g4"></div>
+            <div class="g5"></div>
+            <div class="interactive"></div>
+        </div>
+    </div>
+    <div id="app-content">
+        <div id="language-selection">
+            <h1>Selecciona el idioma</h1>
+            <div id="language-buttons">
+                <button onclick="selectLanguage('es')">Español</button>
+                <button onclick="selectLanguage('en')">Inglés</button>
+            </div>
+        </div>
+        <div id="game-dashboard" style="display:none;">
+            <h1>Wordle Solver</h1>
+            <label for="word-length">Cantidad de caracteres de la palabra:</label>
+            <input type="number" id="word-length" min="1" max="10">
+            <button onclick="startGame()">Iniciar Juego</button>
+            <div id="game-area" style="display:none;">
+                <p id="initial-word"></p>
+                <p id="previous-word"></p>
+                <label for="feedback">Ingresa feedback (Bien=B, Mal=M, Cambiar Posición=C):</label>
+                <input type="text" id="feedback" maxlength="10" oninput="validateFeedback()">
+                <button onclick="submitFeedback()">Enviar Feedback</button>
+                <p id="result"></p>
+                <p id="valid-words"></p>
+            </div>
+        </div>
+    </div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
