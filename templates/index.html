@@ -40,18 +40,18 @@
             <label for="word-length">Cantidad de caracteres de la palabra:</label>
             <input type="number" id="word-length" min="1" max="10">
             <button onclick="startGame()">Iniciar Juego</button>
+            <p id="validation-message" style="display:none; color:red;"></p> <!-- Mensaje de validación -->
             <div id="game-area" style="display:none;">
                 <p id="initial-word"></p>
                 <p id="previous-word"></p>
                 <label for="feedback">Ingresa feedback (Bien=B, Mal=M, Cambiar Posición=C):</label>
-                <input type="text" id="feedback" maxlength="10" oninput="validateFeedback()">
+                <input type="text" id="feedback" maxlength="20" oninput="validateFeedback()" autocomplete="off"> <!-- Ajustar el máximo a 20 y deshabilitar autocomplete -->
                 <button onclick="submitFeedback()">Enviar Feedback</button>
                 <p id="result"></p>
                 <p id="valid-words"></p>
             </div>
         </div>
     </div>
-    <div class="circle"></div>
     <div class="circle"></div>
     <div class="circle"></div>
     <div class="circle"></div>

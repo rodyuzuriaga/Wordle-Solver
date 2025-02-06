@@ -45,13 +45,15 @@ class WordleSolver:
         A.make_automaton()
         return A
 
-    def select_initial_word(self, length):
-        candidates = [word for word in self.common_words if len(word) == length]
-        if candidates:
-            return random.choice(candidates)
-        return random.choice(self.words_by_length[length])
+    def select_initial_word_with_vowels(self, words):
+        vowels = set('AEIOU')
+        words_with_vowels = [(word, len(set(word) & vowels)) for word in words]
+        max_vowels = max(words_with_vowels, key=lambda x: x[1])[1]
+        best_words = [word for word, count in words_with_vowels if count == max_vowels]
+        return random.choice(best_words)
 
-    def filter_words(self, feedback, previous_word):
+    def filter_words(self, feedback, previous_word, blocked=None):
+        blocked = set(blocked) if blocked else set()
         constraints = {
             'exact': {},
             'present': defaultdict(set),
@@ -60,29 +62,32 @@ class WordleSolver:
         }
 
         for i, (char, fb) in enumerate(zip(previous_word, feedback)):
+            # 'B' = Bien, 'C' = Cambiar posición, 'M' = Mal (excluida)
             if fb == 'B':
                 constraints['exact'][i] = char
                 constraints['counts'][char] += 1
             elif fb == 'C':
                 constraints['present'][char].add(i)
                 constraints['counts'][char] += 1
-            else:
+            else:  # fb == 'M'
                 constraints['excluded'].add(char)
 
         valid_words = []
         for word in self.words_by_length[len(previous_word)]:
             if word in self.used_words:
-                continue  # Saltar palabras ya usadas
+                continue
             valid = True
-            word_counts = defaultdict(int)
-            
+
+            # Bloquear palabras que contengan letras marcadas como mal en cualquier posición
+            if any(letter in word for letter in blocked):
+                continue
+
             # Verificar posiciones exactas
             for pos, char in constraints['exact'].items():
                 if word[pos] != char:
                     valid = False
                     break
-                word_counts[char] += 1
-            
+
             # Verificar letras presentes pero en posición incorrecta
             if valid:
                 for char, positions in constraints['present'].items():
@@ -93,15 +98,16 @@ class WordleSolver:
                         if word[pos] == char:
                             valid = False
                             break
-                    word_counts[char] += 1
-            
-            # Verificar letras excluidas y conteos
+
+            # Excluir letras que no deben aparecer
             if valid:
                 for char in constraints['excluded']:
-                    if char in word and word.count(char) > constraints['counts'][char]:
+                    if char in word:
                         valid = False
                         break
-            
+
+            # Verificar que la palabra contenga al menos la cantidad requerida de cada letra
+            if valid:
                 for char, count in constraints['counts'].items():
                     if word.count(char) < count:
                         valid = False
@@ -112,24 +118,10 @@ class WordleSolver:
 
         # Priorizar palabras comunes
         common_valid_words = [word for word in valid_words if word in self.common_words]
-        if common_valid_words:
-            return common_valid_words
-        return valid_words
+        return common_valid_words if common_valid_words else valid_words
 
     def mark_word_as_used(self, word):
         self.used_words.add(word)
-
-    def double_check_words(self, feedback, previous_word):
-        # Primer recorrido
-        valid_words = self.filter_words(feedback, previous_word)
-        
-        # Segundo recorrido para verificar palabras usando tablas hash
-        final_valid_words = []
-        for word in valid_words:
-            if word not in self.used_words:
-                final_valid_words.append(word)
-        
-        return final_valid_words
 
     def score_word(self, word, feedback, previous_word):
         score = 0
@@ -143,4 +135,6 @@ class WordleSolver:
     def select_best_word(self, valid_words, feedback, previous_word):
         scored_words = [(word, self.score_word(word, feedback, previous_word)) for word in valid_words]
         scored_words.sort(key=lambda x: x[1], reverse=True)
-        return scored_words[0][0] if scored_words else None
+        # Priorizar palabras comunes
+        common_scored_words = [word for word, score in scored_words if word in self.common_words]
+        return common_scored_words[0] if common_scored_words else scored_words[0][0] if scored_words else None
