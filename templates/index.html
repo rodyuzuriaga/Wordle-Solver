@@ -1,13 +1,22 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wordle Solver</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='logo.ico') }}">
+    <!-- Font Awesome para los íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
+    <div id="loading-overlay">
+        <div class="loader-container">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
     <div class="gradient-bg">
         <svg xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -27,31 +36,82 @@
             <div class="interactive"></div>
         </div>
     </div>
-    <div id="app-content">
-        <div id="language-selection">
-            <h1>Selecciona el idioma</h1>
-            <div id="language-buttons">
-                <button onclick="selectLanguage('es')">Español</button>
-                <button onclick="selectLanguage('en')">Inglés</button>
+    <div class="card">
+        <div class="card-header">
+            <div class="header-left">
+                <!-- Botón de Home -->
+                <button class="header-btn home-btn" aria-label="Inicio" onclick="resetGame(true)">
+                    <i class="fas fa-home"></i>
+                </button>
+                <!-- Botón de Reintentar -->
+                <button class="header-btn retry-btn" aria-label="Reintentar" onclick="retryGame()">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <!-- Selector de Idiomas -->
+                <div class="language-selector">
+                    <button class="lang-btn" id="es-btn" aria-label="Español" onclick="selectLanguage('es')">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/9/9a/Flag_of_Spain.svg" alt="España">
+                    </button>
+                    <button class="lang-btn" id="en-btn" aria-label="Inglés" onclick="selectLanguage('en')">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/be/Flag_of_England.svg" alt="Inglés">
+                    </button>
+                </div>
+                <!-- Desplegable para Número de Caracteres -->
+                <div class="number-input">
+                    <label for="numInput">Caracteres:</label>
+                    <select id="numInput" name="numInput" onchange="updateWordLength()">
+                        <option value="4">4</option>
+                        <option value="5" selected>5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                    </select>
+                </div>
+            </div>
+            <div class="header-right">
+                <!-- Enlace a GitHub -->
+                <a href="https://github.com/rodyuzuriaga/Wordle-Solver" class="github-link" target="_blank" rel="noopener" aria-label="GitHub de rodyDev">
+                    <i class="fab fa-github"></i> rodyDev
+                </a>
             </div>
         </div>
-        <div id="game-dashboard" style="display:none;">
-            <h1>Wordle Solver</h1>
-            <label for="word-length">Cantidad de caracteres de la palabra:</label>
-            <input type="number" id="word-length" min="1" max="10">
-            <button onclick="startGame()">Iniciar Juego</button>
-            <p id="validation-message" style="display:none; color:red;"></p> <!-- Mensaje de validación -->
-            <div id="game-area" style="display:none;">
-                <p id="initial-word"></p>
-                <p id="previous-word"></p>
-                <label for="feedback">Ingresa feedback (Bien=B, Mal=M, Cambiar Posición=C):</label>
-                <input type="text" id="feedback" maxlength="20" oninput="validateFeedback()" autocomplete="off"> <!-- Ajustar el máximo a 20 y deshabilitar autocomplete -->
-                <button onclick="submitFeedback()">Enviar Feedback</button>
-                <p id="result"></p>
-                <p id="valid-words"></p>
+        <div id="app-content">
+            <div id="language-selection">
+                <h1>Selecciona el idioma</h1>
+                <div id="language-buttons">
+                    <button onclick="selectLanguage('es')">Español</button>
+                    <button onclick="selectLanguage('en')">Inglés</button>
+                </div>
+            </div>
+            <div id="game-dashboard" style="display:none;">
+                <h1>Wordle Solver</h1>
+                <div class="selection-container">
+                    <div class="option">
+                        <button id="generate-word-btn" onclick="mostrarSugerencias()">Obtener lista de palabras sugeridas</button>
+                    </div>
+                    <div class="divider">
+                        <span>🤔</span>
+                    </div>
+                    <div class="option">
+                        <label for="user-word">Ingresa una palabra:</label>
+                        <input type="text" id="user-word" maxlength="5" placeholder="Palabra de 5 letras" autocomplete="off" oninput="this.value = this.value.toUpperCase().replace(/[^A-Za-zÑñ]/g, '')">
+                        <button id="start-game-btn" onclick="agregarIntento(document.getElementById('user-word').value)">Agregar</button>
+                    </div>
+                </div>
+                <div id="game-area" style="display:none;">
+                    <!-- aquí van las pilas de botones con la palabra -->
+                    <div id="intentos-container"></div>
+                </div>
+                <div id="valid-words" style="display:none;">
+                    <!-- aquí se genera la lista de palabras con sus botones de flecha respectivos para cada palabra disponible, máximo de la lista es 10 -->
+                </div>
             </div>
         </div>
     </div>
+    <!-- Círculos para el efecto visual 
     <div class="circle"></div>
     <div class="circle"></div>
     <div class="circle"></div>
@@ -64,6 +124,7 @@
     <div class="circle"></div>
     <div class="circle"></div>
     <div class="circle"></div>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <div class="circle"></div>-->
+    <script src="/static/js/script.js"></script>
 </body>
 </html>

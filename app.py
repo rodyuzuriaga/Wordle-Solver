@@ -1,14 +1,15 @@
 from flask import Flask, request, jsonify, render_template
-from wordle_solver import WordleSolver
 import random
+from wordle_solver import cargar_diccionarios, WordleSolver
 
 app = Flask(__name__)
 
-# Inicializar solvers para cada idioma
-solvers = {
-    'es': WordleSolver('es'),
-    'en': WordleSolver('en')
-}
+# Almacenar temporalmente los datos seleccionados
+selected_language = 'es'
+selected_length = 5
+intento = 0
+solver = None
+intentos = []  # Variable global
 
 @app.route('/')
 def index():
@@ -16,46 +17,90 @@ def index():
 
 @app.route('/generate_word', methods=['POST'])
 def generate_word():
+    global intento, solver
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No se enviaron datos'}), 400
 
-        language = data.get('language', 'es')
-        length = data.get('length')
-        feedback = data.get('feedback')
-        previous_word = data.get('previous_word')
-        blocked = data.get('blocked', [])  # letras marcadas como mal acumuladas
+        language = data.get('language', selected_language)
+        length = data.get('length', selected_length)
+        intentos_recibidos = data.get('intentos', [])  # Renombrar la variable local
 
-        solver = solvers.get(language)
-        if not solver:
-            return jsonify({'error': 'No se encontró el solver para este idioma'}), 500
+        if not isinstance(intentos_recibidos, list):
+            return jsonify({'error': 'El campo intentos debe ser una lista'}), 400
 
-        # Validar que la longitud exista en el diccionario
-        if length not in solver.words_by_length or not solver.words_by_length[length]:
-            return jsonify({'word': 'NO SE ENCONTRÓ una palabra válida', 'valid_words': []}), 200
+        print(f"Idioma: {language}, Longitud: {length}, Intento: {intento}")
 
-        # Si no se envía feedback ni previous_word, se asume inicio del juego.
-        if not feedback or not previous_word:
-            all_words = solver.words_by_length.get(length, [])
-            if not all_words:
-                return jsonify({'word': 'NO SE ENCONTRÓ una palabra válida', 'valid_words': []}), 200
-            common = [w for w in all_words if w in solver.common_words]
-            chosen = solver.select_initial_word_with_vowels(common) if common else solver.select_initial_word_with_vowels(all_words)
-            solver.mark_word_as_used(chosen)
-            return jsonify({'word': chosen, 'valid_words': []}), 200
+        # Cargar diccionarios según el idioma y longitud
+        diccionario_total = cargar_diccionarios(language, length, intento)
+        print(f"Diccionario cargado con {len(diccionario_total)} palabras")
 
-        # Filtrar según feedback y letras bloqueadas
-        valid_words = solver.filter_words(feedback, previous_word, blocked)
-        next_word = solver.select_best_word(valid_words, feedback, previous_word)
-        if not next_word:
-            return jsonify({'word': 'NO SE ENCONTRÓ una palabra válida', 'valid_words': []}), 200
+        # Inicializar el solver con el diccionario combinado si es el primer intento
+        if solver is None:
+            solver = WordleSolver(diccionario_total, word_length=length)
+        else:
+            solver.reset()  # Reiniciar las restricciones previas
+            solver.word_list = diccionario_total
 
-        solver.mark_word_as_used(next_word)
-        return jsonify({'word': next_word, 'valid_words': list(set(valid_words))}), 200  # Eliminar duplicados
+        # Procesar el feedback de los intentos anteriores
+        for intento_recibido in intentos_recibidos:
+            solver.process_feedback(intento_recibido['palabra'], intento_recibido['feedback'])
+            print(f"Feedback procesado para la palabra {intento_recibido['palabra']}: {intento_recibido['feedback']}")
+
+        # Obtener un máximo de 10 palabras sugeridas
+        sugerencias = solver.get_suggested_words()
+        mejores_palabras = random.sample(sugerencias, min(10, len(sugerencias))) if sugerencias else []
+        print(f"Palabras sugeridas: {mejores_palabras}")
+
+        print(type(intento), intento)  # Imprimir el tipo y valor de intento
+        intento += 1  # Incrementar el número de intentos
+
+        return jsonify({'words': mejores_palabras})
     except Exception as e:
-        print(e)
+        print(f"Error: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/process_feedback', methods=['POST'])
+def process_feedback():
+    global solver, intentos
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No se enviaron datos'}), 400
+
+        word = data.get('word')
+        feedback = data.get('feedback')
+
+        if not word or not feedback:
+            return jsonify({'error': 'Faltan datos'}), 400
+
+        # Verificar si solver está instanciado
+        if solver is None:
+            return jsonify({'error': 'Solver no está instanciado'}), 500
+
+        solver.process_feedback(word, feedback)
+        solver.filter_words()
+        solver.mark_word_as_used(word)
+
+        # Asegurarse de que intentos es una lista
+        if not isinstance(intentos, list):
+            intentos = []
+
+        intentos.append({'palabra': word, 'feedback': feedback})
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/reset_game', methods=['POST'])
+def reset_game():
+    global intentos, solver, intento
+    intentos = []
+    solver = None
+    intento = 0
+    print("Juego reiniciado. Verificando solver:", solver)
+    return jsonify({'message': 'Juego reiniciado correctamente'})
 
 if __name__ == '__main__':
     app.run(debug=True)
